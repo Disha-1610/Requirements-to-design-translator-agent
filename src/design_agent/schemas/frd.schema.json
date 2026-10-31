@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "frd.json (normalized: array of requirement records)",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "required": [
+      "requirement_id", "official_id", "title", "statement", "epic", "source_ids",
+      "roles", "preconditions", "postconditions", "error_ids", "assumptions",
+      "open_question_ids", "priority", "status", "version"
+    ],
+    "properties": {
+      "requirement_id": { "type": "string", "pattern": "^(F|NF)[0-9]+$" },
+      "official_id": { "type": "string" },
+      "title": { "type": "string" },
+      "statement": { "type": "string" },
+      "epic": { "type": "string" },
+      "source_ids": { "type": "array", "items": { "type": "string" } },
+      "roles": { "type": "array", "items": { "type": "string" } },
+      "preconditions": { "type": "array", "items": { "type": "string" } },
+      "postconditions": { "type": "array", "items": { "type": "string" } },
+      "error_ids": { "type": "array", "items": { "type": "string", "pattern": "^ERR-[0-9]{3,}$" } },
+      "assumptions": { "type": "array", "items": { "type": "string" } },
+      "open_question_ids": { "type": "array", "items": { "type": "string" } },
+      "priority": { "type": "string" },
+      "status": { "type": "string" },
+      "version": { "type": "string" }
+    }
+  }
+}

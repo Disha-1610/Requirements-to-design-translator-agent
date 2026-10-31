@@ -1,0 +1,7 @@
+{
+  "test_case_id": "TC-MISS-03",
+  "category": "MISSING_DOCUMENT",
+  "expected_failure_stage": "Stage 0",
+  "expected_stop_prefix": "STOP: Missing input \u2014 data_spec.json",
+  "description": "Omit data_spec.json."
+}

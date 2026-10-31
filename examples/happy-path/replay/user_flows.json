@@ -1,0 +1,7 @@
+{
+  "flows": [
+    {"flow_id": "FL-1", "actor": "Customer", "action": "Log in", "screen": "Login", "result": "Authenticated session is established", "satisfies": ["F3"]},
+    {"flow_id": "FL-2", "actor": "Customer", "action": "View balance", "screen": "Balance", "result": "Current balance is displayed", "satisfies": ["F1"]},
+    {"flow_id": "FL-3", "actor": "Customer", "action": "Submit transfer", "screen": "Transfer", "result": "Transfer is recorded and a confirmation is shown", "satisfies": ["F2"]}
+  ]
+}

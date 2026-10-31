@@ -1,0 +1,22 @@
+{
+  "apis": [
+    {
+      "endpoint": "/auth/login", "method": "POST", "module": "Auth",
+      "request": {"email": "string", "password": "string"},
+      "response": {"access_token": "string"},
+      "auth": "none", "errors": ["ERR-004"], "satisfies": ["F3"]
+    },
+    {
+      "endpoint": "/accounts/{account_id}/balance", "method": "GET", "module": "Accounts",
+      "request": {"account_id": "string"},
+      "response": {"account_id": "string", "balance": "decimal"},
+      "auth": "bearer", "errors": ["ERR-003"], "satisfies": ["F1"]
+    },
+    {
+      "endpoint": "/transfers", "method": "POST", "module": "Transfers",
+      "request": {"account_id": "string", "amount": "decimal"},
+      "response": {"transaction_id": "string", "status": "string"},
+      "auth": "bearer", "errors": ["ERR-001", "ERR-002"], "satisfies": ["F2", "NF1"]
+    }
+  ]
+}

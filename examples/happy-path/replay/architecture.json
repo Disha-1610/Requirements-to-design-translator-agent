@@ -1,0 +1,9 @@
+{
+  "system_boundary": "MiniBank web application: login, balance viewing and fund transfer. External identity and payment systems are outside the boundary.",
+  "frontend_backend_split": "Frontend: Login, Balance and Transfer screens. Backend: authentication, account and transfer processing.",
+  "modules": [
+    {"name": "Auth", "screens": ["Login"], "apis": ["POST /auth/login"], "entities": ["Customer"], "boundary_note": "Owns customer authentication (F3)."},
+    {"name": "Accounts", "screens": ["Balance"], "apis": ["GET /accounts/{account_id}/balance"], "entities": ["Account"], "boundary_note": "Owns balance retrieval (F1)."},
+    {"name": "Transfers", "screens": ["Transfer"], "apis": ["POST /transfers"], "entities": ["Transaction"], "boundary_note": "Owns fund transfer (F2, NF1)."}
+  ]
+}

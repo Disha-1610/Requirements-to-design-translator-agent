@@ -1,0 +1,7 @@
+{
+  "test_case_id": "TC-INC-04",
+  "category": "INCOMPLETE_SECTIONS",
+  "expected_failure_stage": "Stage 1",
+  "expected_stop_prefix": "STOP: Incomplete input \u2014 error_catalogue.json \u2014 ERR-001 missing",
+  "description": "Delete user_message and http_status from two errors."
+}

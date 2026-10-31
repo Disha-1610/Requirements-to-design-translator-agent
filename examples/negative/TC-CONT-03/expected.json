@@ -1,0 +1,7 @@
+{
+  "test_case_id": "TC-CONT-03",
+  "category": "CONTRADICTORY_DATA",
+  "expected_failure_stage": "Stage 8 (check 11, pre-LLM)",
+  "expected_stop_prefix": "STOP: Stage 8 \u2014 check 11",
+  "description": "frd.json adds Cryptocurrency trading, listed Out of Scope in BRD 5.2."
+}

@@ -1,0 +1,7 @@
+{
+  "test_case_id": "TC-INC-01",
+  "category": "INCOMPLETE_SECTIONS",
+  "expected_failure_stage": "Stage 1",
+  "expected_stop_prefix": "STOP: Incomplete input \u2014 BRD.md missing Section 7",
+  "description": "Remove Sections 7 and 8 from BRD.md."
+}

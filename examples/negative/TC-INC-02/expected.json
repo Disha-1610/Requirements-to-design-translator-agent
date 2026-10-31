@@ -1,0 +1,7 @@
+{
+  "test_case_id": "TC-INC-02",
+  "category": "INCOMPLETE_SECTIONS",
+  "expected_failure_stage": "Stage 1",
+  "expected_stop_prefix": "STOP: Incomplete input \u2014 frd.json \u2014 F1 missing",
+  "description": "Strip error_ids and source_ids from every requirement."
+}

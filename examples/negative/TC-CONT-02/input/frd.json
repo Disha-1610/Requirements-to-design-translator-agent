@@ -1,0 +1,72 @@
+{
+  "requirements": [
+    {
+      "requirement_id": "F1",
+      "official_id": "FR-001",
+      "title": "View balance",
+      "statement": "An authenticated customer can view the current balance of one of their accounts.",
+      "epic": "Accounts",
+      "source_ids": ["BR-002"],
+      "roles": ["Customer"],
+      "preconditions": ["Customer is authenticated with a bearer token"],
+      "postconditions": ["Current balance is displayed"],
+      "error_ids": ["ERR-003"],
+      "assumptions": [],
+      "open_question_ids": [],
+      "priority": "High",
+      "status": "Approved",
+      "version": "1.0"
+    },
+    {
+      "requirement_id": "F2",
+      "official_id": "FR-002",
+      "title": "Transfer funds",
+      "statement": "An authenticated customer can transfer an amount from one of their accounts. The amount must be valid and must not exceed the available balance.",
+      "epic": "Transfers",
+      "source_ids": ["BR-001", "BR-003"],
+      "roles": ["Customer"],
+      "preconditions": ["Customer is authenticated with a bearer token"],
+      "postconditions": ["Transfer is recorded and a confirmation is shown"],
+      "error_ids": ["ERR-001", "ERR-002"],
+      "assumptions": [],
+      "open_question_ids": [],
+      "priority": "High",
+      "status": "Approved",
+      "version": "1.0"
+    },
+    {
+      "requirement_id": "F3",
+      "official_id": "FR-003",
+      "title": "Customer login",
+      "statement": "A customer logs in with email and password and receives an access token.",
+      "epic": "Access",
+      "source_ids": ["BR-003"],
+      "roles": ["Customer"],
+      "preconditions": [],
+      "postconditions": ["Authenticated session is established"],
+      "error_ids": ["ERR-004"],
+      "assumptions": [],
+      "open_question_ids": [],
+      "priority": "High",
+      "status": "Approved",
+      "version": "1.0"
+    },
+    {
+      "requirement_id": "NF1",
+      "official_id": "NFR-001",
+      "title": "Transfer response time",
+      "statement": "A transfer completes within 3 seconds.",
+      "epic": "Performance",
+      "source_ids": ["BR-001"],
+      "roles": ["Customer"],
+      "preconditions": [],
+      "postconditions": [],
+      "error_ids": [],
+      "assumptions": [],
+      "open_question_ids": [],
+      "priority": "Medium",
+      "status": "Approved",
+      "version": "1.0"
+    }
+  ]
+}

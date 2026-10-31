@@ -1,0 +1,28 @@
+{
+  "fields": [
+    {"entity": "Customer", "name": "customer_id", "type": "string", "format": "uuid", "length": 36, "example": "3f2b8c1e-0000-4000-8000-000000000001", "required": true, "primary_key": true},
+    {"entity": "Customer", "name": "email", "type": "string", "format": "email", "length": 120, "example": "asha@example.test", "required": true},
+    {"entity": "Customer", "name": "password_hash", "type": "string", "format": "bcrypt", "length": 60, "example": "$2b$12$examplehash", "required": true},
+    {"entity": "Account", "name": "account_id", "type": "string", "format": "uuid", "length": 36, "example": "9a1d7f00-0000-4000-8000-000000000002", "required": true, "primary_key": true},
+    {"entity": "Account", "name": "customer_id", "type": "string", "format": "uuid", "length": 36, "example": "3f2b8c1e-0000-4000-8000-000000000001", "required": true, "foreign_key": "Customer.customer_id"},
+    {"entity": "Account", "name": "balance", "type": "decimal", "format": "2dp", "length": null, "example": "4500.00", "required": true},
+    {"entity": "Account", "name": "status", "type": "string", "format": "enum", "length": 16, "example": "ACTIVE", "required": true},
+    {"entity": "Transaction", "name": "transaction_id", "type": "string", "format": "uuid", "length": 36, "example": "b7c0e2aa-0000-4000-8000-000000000003", "required": true, "primary_key": true},
+    {"entity": "Transaction", "name": "account_id", "type": "string", "format": "uuid", "length": 36, "example": "9a1d7f00-0000-4000-8000-000000000002", "required": true, "foreign_key": "Account.account_id"},
+    {"entity": "Transaction", "name": "amount", "type": "decimal", "format": "2dp", "length": null, "example": "500.00", "required": true},
+    {"entity": "Transaction", "name": "status", "type": "string", "format": "enum", "length": 16, "example": "COMPLETED", "required": true}
+  ],
+  "state_transitions": {
+    "Account": [
+      {"from": "PENDING", "to": "ACTIVE", "trigger": "kyc_approved", "fixtures": ["ACC-001"]},
+      {"from": "ACTIVE", "to": "FROZEN", "trigger": "freeze_requested", "fixtures": ["ACC-001"]}
+    ],
+    "Transaction": [
+      {"from": "INITIATED", "to": "COMPLETED", "trigger": "transfer_confirmed", "fixtures": ["ACC-001"]}
+    ]
+  },
+  "fixtures": [
+    {"id": "CUST-001", "entity": "Customer", "email": "asha@example.test"},
+    {"id": "ACC-001", "entity": "Account", "balance": "4500.00"}
+  ]
+}

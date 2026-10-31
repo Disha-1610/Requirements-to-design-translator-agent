@@ -1,0 +1,7 @@
+{
+  "test_case_id": "TC-CONT-01",
+  "category": "CONTRADICTORY_DATA",
+  "expected_failure_stage": "Stage 8 (check 4, pre-LLM)",
+  "expected_stop_prefix": "STOP: Stage 8 \u2014 check 4",
+  "description": "frd.json F2 references ERR-999, absent from the catalogue."
+}

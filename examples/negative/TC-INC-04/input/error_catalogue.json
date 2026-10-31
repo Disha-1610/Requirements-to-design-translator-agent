@@ -1,0 +1,28 @@
+{
+  "errors": [
+    {
+      "error_id": "ERR-001",
+      "name": "INSUFFICIENT_BALANCE",
+      "notes": "Transfer amount exceeds available balance (BR-001)."
+    },
+    {
+      "error_id": "ERR-002",
+      "name": "INVALID_AMOUNT",
+      "notes": "Amount is zero, negative or malformed."
+    },
+    {
+      "error_id": "ERR-003",
+      "name": "ACCOUNT_NOT_FOUND",
+      "http_status": 404,
+      "user_message": "Account not found.",
+      "notes": "Account does not exist or is not owned by the customer."
+    },
+    {
+      "error_id": "ERR-004",
+      "name": "INVALID_CREDENTIALS",
+      "http_status": 401,
+      "user_message": "Email or password is incorrect.",
+      "notes": "Login failed."
+    }
+  ]
+}

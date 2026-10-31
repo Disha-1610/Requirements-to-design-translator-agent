@@ -1,0 +1,7 @@
+{
+  "test_case_id": "TC-MALF-02",
+  "category": "MALFORMED_SYNTAX",
+  "expected_failure_stage": "Stage 0",
+  "expected_stop_prefix": "STOP: Malformed input \u2014 data_spec.json \u2014",
+  "description": "A field type is replaced by a nested unparsable structure."
+}

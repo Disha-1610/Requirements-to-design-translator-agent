@@ -1,0 +1,31 @@
+{
+  "screens": [
+    {
+      "screen": "Login", "module": "Auth",
+      "fields": [
+        {"name": "email", "type": "string", "required": "y", "error_ids": []},
+        {"name": "password", "type": "string", "required": "y", "error_ids": ["ERR-004"]}
+      ],
+      "actions": ["Log in"], "success_state": "Authenticated session is established", "error_state": "INVALID_CREDENTIALS",
+      "satisfies": ["F3"]
+    },
+    {
+      "screen": "Balance", "module": "Accounts",
+      "fields": [
+        {"name": "account_id", "type": "string", "required": "y", "error_ids": ["ERR-003"]},
+        {"name": "balance", "type": "decimal", "required": "n", "error_ids": []}
+      ],
+      "actions": ["View balance"], "success_state": "Current balance is displayed", "error_state": "ACCOUNT_NOT_FOUND",
+      "satisfies": ["F1"]
+    },
+    {
+      "screen": "Transfer", "module": "Transfers",
+      "fields": [
+        {"name": "account_id", "type": "string", "required": "y", "error_ids": []},
+        {"name": "amount", "type": "decimal", "required": "y", "error_ids": ["ERR-001", "ERR-002"]}
+      ],
+      "actions": ["Submit transfer"], "success_state": "Transfer is recorded and a confirmation is shown", "error_state": "INSUFFICIENT_BALANCE, INVALID_AMOUNT",
+      "satisfies": ["F2", "NF1"]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Stage 2 output (rendered to architecture.md by code)",
+  "type": "object",
+  "required": ["system_boundary", "frontend_backend_split", "modules"],
+  "additionalProperties": false,
+  "properties": {
+    "system_boundary": { "type": "string", "minLength": 1 },
+    "frontend_backend_split": { "type": "string", "minLength": 1 },
+    "modules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "screens", "apis", "entities", "boundary_note"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "screens": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "apis": {
+            "type": "array",
+            "description": "Exactly 'METHOD /path'",
+            "items": { "type": "string", "pattern": "^(GET|POST|PUT|PATCH|DELETE) /\\S*$" }
+          },
+          "entities": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "boundary_note": { "type": "string" }
+        }
+      }
+    }
+  }
+}

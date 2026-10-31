@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "api_contracts.json",
+  "type": "object",
+  "required": ["apis"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string" },
+    "apis": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["endpoint", "method", "module", "request", "response", "auth", "errors", "satisfies"],
+        "additionalProperties": false,
+        "properties": {
+          "endpoint": { "type": "string", "pattern": "^/\\S*$" },
+          "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+          "module": { "type": "string", "minLength": 1 },
+          "request": { "type": "object" },
+          "response": { "type": "object" },
+          "auth": { "type": "string", "minLength": 1 },
+          "errors": { "type": "array", "items": { "type": "string" } },
+          "satisfies": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

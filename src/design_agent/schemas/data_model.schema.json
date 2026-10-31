@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "data_model.json",
+  "type": "object",
+  "required": ["entities"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string" },
+    "entities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "module", "fields", "primary_key", "foreign_keys", "relationships"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "module": { "type": "string", "minLength": 1 },
+          "fields": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["name", "source_type", "db_type", "required"],
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string" },
+                "source_type": { "type": "string" },
+                "db_type": { "type": "string" },
+                "required": { "type": ["boolean", "null"] }
+              }
+            }
+          },
+          "primary_key": { "type": "array", "items": { "type": "string" } },
+          "foreign_keys": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["field", "references"],
+              "additionalProperties": false,
+              "properties": {
+                "field": { "type": "string" },
+                "references": { "type": "string", "pattern": "^[^.\\s]+\\.[^.\\s]+$" }
+              }
+            }
+          },
+          "relationships": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["from", "to", "kind"],
+              "additionalProperties": false,
+              "properties": {
+                "from": { "type": "string" },
+                "to": { "type": "string" },
+                "kind": { "const": "many-to-one" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "test_case_id": "TC-MALF-01",
+  "category": "MALFORMED_SYNTAX",
+  "expected_failure_stage": "Stage 0",
+  "expected_stop_prefix": "STOP: Malformed input \u2014 frd.json \u2014",
+  "description": "frd.json ends with a trailing comma and an unclosed bracket."
+}

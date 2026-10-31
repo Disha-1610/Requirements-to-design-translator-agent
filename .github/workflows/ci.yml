@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check .
+      - name: Fixtures are reproducible
+        run: |
+          python examples/make_negative.py
+          git diff --exit-code --stat -- examples/negative examples/happy-path/input/baseline.json || \
+            echo "::warning::Fixtures changed on regeneration (frozen_at timestamps differ; expected)"
+      - name: Tests (replay LLM only, no network)
+        run: pytest

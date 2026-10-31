@@ -1,0 +1,12 @@
+{
+  "approved": true,
+  "version": "test",
+  "approved_by": "make_negative.py",
+  "frozen_at": "2026-10-31T15:12:00+00:00",
+  "files": {
+    "BRD.md": "7d58dbe450634b00f5706f7deeee3b0b74a6ba4d86df91555ebac6b7d9ea6f05",
+    "frd.json": "ebc65fbc60e0d7c94c26805d6a0a99c0d1d42f7495517592fa7feffc494bb0c0",
+    "data_spec.json": "013d1e38b1fe11975b1a23a4a802787c99bc03684c9496c54d842b2ba3c523ff",
+    "error_catalogue.json": "02ef5c6e0ca9b56c1320544f179d19a69007ab7455f5d475a5dec6224e998837"
+  }
+}
