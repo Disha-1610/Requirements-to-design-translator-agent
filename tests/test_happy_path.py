@@ -125,7 +125,7 @@ def test_promote_reads_report_with_utf8_encoding(happy_run, tmp_path):
 
 def test_record_client_writes_replay_folder(tmp_path, replay):
     """RecordClient must write one JSON file per stage that ReplayClient can replay."""
-    from design_agent.llm import RecordClient, ReplayClient
+    from design_agent.llm import RecordClient
 
     record_dir = tmp_path / "recorded"
 

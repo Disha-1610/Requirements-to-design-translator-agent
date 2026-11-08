@@ -11,9 +11,9 @@ Endpoints:
 from __future__ import annotations
 
 import io
-from pathlib import Path
 import tempfile
 import zipfile
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -96,12 +96,12 @@ def _process_run(
                 "stage": stop_err.stage,
                 "message": stop_err.message,
             },
-        )
+        ) from stop_err
     except Exception as exc:
         raise HTTPException(
             status_code=500,
             detail=f"Pipeline execution error: {type(exc).__name__}: {exc}",
-        )
+        ) from exc
 
 
 @app.post("/api/generate")

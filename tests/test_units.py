@@ -186,6 +186,7 @@ def test_max_tokens_stop_reason_raises_bad_output_error():
     """AnthropicClient must raise BadOutputError — not silently pass — when the
     model is cut off mid-tool-call (stop_reason == 'max_tokens')."""
     import types
+
     from design_agent.llm import AnthropicClient, BadOutputError
 
     client = AnthropicClient.__new__(AnthropicClient)
@@ -204,9 +205,14 @@ def test_max_tokens_stop_reason_raises_bad_output_error():
     )
 
     class _FakeAnthropic:
-        class APIConnectionError(Exception): pass
-        class RateLimitError(Exception): pass
-        class InternalServerError(Exception): pass
+        class APIConnectionError(Exception):
+            pass
+
+        class RateLimitError(Exception):
+            pass
+
+        class InternalServerError(Exception):
+            pass
 
     class _FakeMessages:
         def create(self, **kw):
