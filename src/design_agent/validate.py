@@ -21,6 +21,7 @@ from .constants import DERIVED_FIELDS, OUTPUT_FILES
 from .index import CanonicalIndex
 from .normalize import field_variants, norm_entity
 from .schemas import load_schema
+from .scope import scope_hit, scope_tokens
 
 CHECK_NAMES = {
     1: "files exist and JSON valid",
@@ -89,7 +90,7 @@ def _spec_field_variants(index: CanonicalIndex) -> set[str]:
 
 
 def _is_known_field(index: CanonicalIndex, name: str, spec_vars: set[str]) -> bool:
-    return bool(field_variants(name) & (spec_vars | DERIVED_FIELDS))
+    return bool(field_variants(name) & (spec_vars | DERIVED_FIELDS | index.spec_derived_fields))
 
 
 def _id_suggestion(rid: str, index: CanonicalIndex) -> str:
@@ -117,11 +118,17 @@ def check_baseline(index: CanonicalIndex) -> list[Failure]:
                 out.append(
                     Failure(10, "data_spec.json", f"{entity}.{name}", f"references missing {ref}")
                 )
-    # 11: scope
+    # 11: scope — token-overlap match, word-boundary safe, reword-resistant.
+    # Pre-compute stemmed token-sets for all out-of-scope phrases once.
+    scope_phrase_tokens = [
+        (item, toks)
+        for item in index.out_of_scope
+        if (toks := scope_tokens(item)) is not None
+    ]
     for rid, rec in index.requirements.items():
-        hay = f"{rec['title']} {rec['statement']}".lower()
-        for item in index.out_of_scope:
-            if item in hay:
+        hay = f"{rec['title']} {rec['statement']}"
+        for item, toks in scope_phrase_tokens:
+            if scope_hit(toks, hay):
                 out.append(
                     Failure(11, "frd.json", rid, f"implements out-of-scope item '{item}' (BRD.md 5.2)")
                 )

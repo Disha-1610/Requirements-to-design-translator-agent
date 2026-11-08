@@ -4,6 +4,19 @@ Each case mutates the happy-path inputs, then freezes the (defective) result, so
 Stage 0's baseline check passes and the intended gate is the one that fires.
 
     python examples/make_negative.py
+
+Reproducibility
+---------------
+``freeze()`` stamps ``frozen_at`` with the current UTC time, which makes the
+generated files differ on every run and breaks a simple ``git diff`` check in CI.
+
+Set ``SOURCE_DATE_EPOCH`` (a standard variable used by reproducible-builds
+tooling) to pin the timestamp:
+
+    SOURCE_DATE_EPOCH=0 python examples/make_negative.py
+
+The CI workflow does this automatically so ``git diff --exit-code`` can fail
+properly when the fixture content changes for a *real* reason.
 """
 
 from __future__ import annotations

@@ -10,7 +10,7 @@ from pathlib import Path
 from . import __version__
 from .baseline import freeze
 from .errors import Stop
-from .llm import AnthropicClient, LLMClient, ReplayClient
+from .llm import AnthropicClient, LLMClient, RecordClient, ReplayClient
 from .runner import prepare, promote, run
 from .validate import validate_dir
 
@@ -23,7 +23,12 @@ def _client(args: argparse.Namespace) -> LLMClient:
             raise Stop("STOP: Usage — --llm replay requires --replay-dir")
         return ReplayClient(Path(args.replay_dir))
     model = args.model or os.environ.get("DESIGN_AGENT_MODEL", DEFAULT_MODEL)
-    return AnthropicClient(model=model, temperature=args.temperature)
+    anthropic_client = AnthropicClient(model=model, temperature=args.temperature)
+    if args.llm == "record":
+        if not args.record_dir:
+            raise Stop("STOP: Usage — --llm record requires --record-dir")
+        return RecordClient(anthropic_client, Path(args.record_dir))
+    return anthropic_client
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -43,10 +48,23 @@ def _build_parser() -> argparse.ArgumentParser:
     r = sub.add_parser("run", help="Full pipeline, Stages 0-9")
     r.add_argument("input_dir")
     r.add_argument("--out", required=True)
-    r.add_argument("--llm", choices=("anthropic", "replay"), default="anthropic")
+    r.add_argument(
+        "--llm",
+        choices=("anthropic", "replay", "record"),
+        default="anthropic",
+        help=(
+            "anthropic: live Anthropic API (default); "
+            "replay: return pre-recorded responses from --replay-dir; "
+            "record: live API + save responses to --record-dir (creates a replay fixture)"
+        ),
+    )
     r.add_argument("--model")
     r.add_argument("--temperature", type=float, default=0.0)
-    r.add_argument("--replay-dir")
+    r.add_argument("--replay-dir", help="Directory of recorded stage responses (--llm replay)")
+    r.add_argument(
+        "--record-dir",
+        help="Directory to write recorded stage responses to (--llm record)",
+    )
     r.add_argument("--allow-unfrozen", action="store_true")
 
     c = sub.add_parser("validate", help="Stage 8 on an existing design/ folder")
@@ -59,11 +77,20 @@ def _build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--out", required=True)
     pr.add_argument("--version", dest="approved_version", required=True)
     pr.add_argument("--approved-by", required=True)
+
+    ui = sub.add_parser("ui", help="Launch the Web UI drag-and-drop server")
+    ui.add_argument("--host", default="127.0.0.1", help="Host address (default: 127.0.0.1)")
+    ui.add_argument("--port", type=int, default=8000, help="Port to listen on (default: 8000)")
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+    # Provide defaults for flags not present on every sub-command.
+    if not hasattr(args, "replay_dir"):
+        args.replay_dir = None
+    if not hasattr(args, "record_dir"):
+        args.record_dir = None
     try:
         if args.cmd == "freeze":
             path = freeze(Path(args.input_dir), args.baseline_version, args.approved_by)
@@ -88,6 +115,15 @@ def main(argv: list[str] | None = None) -> int:
                 Path(args.run_dir), Path(args.out), args.approved_version, args.approved_by
             )
             print(f"Promoted: {target}")
+        elif args.cmd == "ui":
+            try:
+                import uvicorn
+            except ImportError as e:
+                raise Stop(
+                    "STOP: Missing dependency — uvicorn / fastapi — pip install 'design-agent[ui]'"
+                ) from e
+            print(f"Starting Design Agent Web UI at http://{args.host}:{args.port}")
+            uvicorn.run("design_agent.server:app", host=args.host, port=args.port, reload=False)
     except Stop as stop:
         print(stop.message, file=sys.stderr)
         return 2

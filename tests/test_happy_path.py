@@ -83,3 +83,81 @@ def test_package_validates_independently(happy_run):
 
     index, _ = prepare(HAPPY_INPUT)
     assert validate_dir(happy_run.run_dir / "design", index) == []
+
+
+# ---------------------------------------------------------------------------
+# Promote hash-verification tests
+# ---------------------------------------------------------------------------
+
+def test_promote_blocked_when_design_file_edited_after_validation(happy_run, tmp_path):
+    """Editing a design file after Stage 8 must block promotion."""
+    out = tmp_path / "out"
+    # Tamper with a design file *after* the run (which recorded hashes).
+    arch_file = happy_run.run_dir / "design" / "architecture.md"
+    arch_file.write_text(arch_file.read_text(encoding="utf-8") + "\n# tampered\n", encoding="utf-8")
+    with pytest.raises(Stop) as info:
+        promote(happy_run.run_dir, out, "v1.0", "Disha")
+    assert "modified after Stage 8" in info.value.message
+    assert "architecture.md" in info.value.message
+
+
+def test_stage8_report_contains_output_hashes(happy_run):
+    """stage8_report.json must contain hashes for all six output files."""
+    from design_agent.constants import OUTPUT_FILES
+    report = load(happy_run.run_dir / "stage8_report.json")
+    assert "output_sha256" in report
+    assert set(report["output_sha256"].keys()) == set(OUTPUT_FILES)
+    for name, digest in report["output_sha256"].items():
+        assert len(digest) == 64, f"bad digest for {name}"
+
+
+def test_promote_reads_report_with_utf8_encoding(happy_run, tmp_path):
+    """promote() must not raise on Windows where the default encoding might not be UTF-8."""
+    out = tmp_path / "out"
+    # This just asserts the happy path goes through; the encoding fix is in the impl.
+    target = promote(happy_run.run_dir, out, "v2.0", "Bot")
+    assert (target / "promotion.json").is_file()
+
+
+# ---------------------------------------------------------------------------
+# --llm record mode tests
+# ---------------------------------------------------------------------------
+
+def test_record_client_writes_replay_folder(tmp_path, replay):
+    """RecordClient must write one JSON file per stage that ReplayClient can replay."""
+    from design_agent.llm import RecordClient, ReplayClient
+
+    record_dir = tmp_path / "recorded"
+
+    class _PassThrough:
+        """Wraps the ReplayClient so RecordClient thinks it's an AnthropicClient."""
+        name = "anthropic"
+        model = "claude-test"
+        temperature = 0.0
+        last_usage: dict = {}
+
+        def complete_json(self, **kw):
+            return replay.complete_json(**kw)
+
+    recorder = RecordClient(_PassThrough(), record_dir)
+    assert recorder.name == "record"
+    assert recorder.model == "claude-test"
+
+    from design_agent.runner import run as da_run
+    result = da_run(HAPPY_INPUT, tmp_path / "out", recorder)
+    assert result.status == "complete"
+
+    # The recorded directory must work as a replay fixture.
+    from tests.conftest import REPLAY_DIR
+    for stage_file in REPLAY_DIR.glob("*.json"):
+        assert (record_dir / stage_file.name).is_file(), f"Missing recorded file: {stage_file.name}"
+
+
+def test_cli_record_requires_record_dir(tmp_path, capsys):
+    """--llm record without --record-dir must exit 2 with a helpful message."""
+    import shutil
+    dst = tmp_path / "in"
+    shutil.copytree(HAPPY_INPUT, dst)
+    code = main(["run", str(dst), "--out", str(tmp_path / "out"), "--llm", "record"])
+    assert code == 2
+    assert "--record-dir" in capsys.readouterr().err

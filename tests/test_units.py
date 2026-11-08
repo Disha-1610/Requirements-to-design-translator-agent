@@ -176,3 +176,97 @@ def test_ui_stage_repairs_invented_field_and_error_id():
     assert rec.attempts == 2
     assert "zz_invented_field" in client.prompts[1] and "ERR-999" in client.prompts[1]
     assert "check 6" in client.prompts[1] and "check 4" in client.prompts[1]
+
+
+# ---------------------------------------------------------------------------
+# max_tokens guard
+# ---------------------------------------------------------------------------
+
+def test_max_tokens_stop_reason_raises_bad_output_error():
+    """AnthropicClient must raise BadOutputError — not silently pass — when the
+    model is cut off mid-tool-call (stop_reason == 'max_tokens')."""
+    import types
+    from design_agent.llm import AnthropicClient, BadOutputError
+
+    client = AnthropicClient.__new__(AnthropicClient)
+
+    # Build a minimal fake response with stop_reason == "max_tokens".
+    fake_resp = types.SimpleNamespace(
+        stop_reason="max_tokens",
+        content=[],
+        usage=types.SimpleNamespace(
+            input_tokens=100,
+            output_tokens=50,
+            cache_read_input_tokens=0,
+            cache_creation_input_tokens=0,
+        ),
+        id="req_test",
+    )
+
+    class _FakeAnthropic:
+        class APIConnectionError(Exception): pass
+        class RateLimitError(Exception): pass
+        class InternalServerError(Exception): pass
+
+    class _FakeMessages:
+        def create(self, **kw):
+            return fake_resp
+
+    class _FakeRawClient:
+        messages = _FakeMessages()
+
+    client._anthropic = _FakeAnthropic()
+    client._client = _FakeRawClient()
+    client.model = "test"
+    client.temperature = None
+    client.max_tokens = 100
+    client.last_usage = {}
+
+    with pytest.raises(BadOutputError) as info:
+        client.complete_json(stage="architecture", system="sys", user="usr", schema={})
+    assert "max_tokens" in str(info.value)
+    assert "architecture" in str(info.value)
+
+
+# ---------------------------------------------------------------------------
+# Prompt hash covers both system and payload (reproducibility)
+# ---------------------------------------------------------------------------
+
+def test_prompt_hash_changes_when_payload_changes():
+    """The prompt_sha256 in StageRecord must differ when the payload differs."""
+    client_a = FlakyClient([GOOD])
+    client_b = FlakyClient([GOOD])
+    _, rec_a = run_llm_stage(client_a, number=3, name="user_flows", file="f.json", payload={"x": 1})
+    _, rec_b = run_llm_stage(client_b, number=3, name="user_flows", file="f.json", payload={"x": 2})
+    assert rec_a.prompt_sha256 != rec_b.prompt_sha256
+
+
+def test_prompt_hash_is_stable_for_same_inputs():
+    """Identical system + payload must always yield the same digest."""
+    client_a = FlakyClient([GOOD])
+    client_b = FlakyClient([GOOD])
+    _, rec_a = run_llm_stage(client_a, number=3, name="user_flows", file="f.json", payload={"x": 1})
+    _, rec_b = run_llm_stage(client_b, number=3, name="user_flows", file="f.json", payload={"x": 1})
+    assert rec_a.prompt_sha256 == rec_b.prompt_sha256
+
+
+# ---------------------------------------------------------------------------
+# last_usage forwarded into StageRecord
+# ---------------------------------------------------------------------------
+
+def test_stage_record_captures_usage_from_client():
+    """If the client exposes last_usage, it must appear in StageRecord.usage."""
+    class UsageClient(FlakyClient):
+        last_usage = {"input_tokens": 42, "output_tokens": 7, "request_id": "req_abc"}
+
+    client = UsageClient([GOOD])
+    _, rec = run_llm_stage(client, number=3, name="user_flows", file="f.json", payload={})
+    assert rec.usage == {"input_tokens": 42, "output_tokens": 7, "request_id": "req_abc"}
+
+
+def test_stage_record_usage_empty_when_client_has_none():
+    """Clients without last_usage (e.g. ReplayClient) yield an empty usage dict."""
+    client = FlakyClient([GOOD])
+    # FlakyClient has no last_usage attribute.
+    _, rec = run_llm_stage(client, number=3, name="user_flows", file="f.json", payload={})
+    assert rec.usage == {}

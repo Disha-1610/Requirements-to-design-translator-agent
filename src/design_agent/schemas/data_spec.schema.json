@@ -22,6 +22,11 @@
           "foreign_key": {
             "type": ["string", "null"],
             "pattern": "^[^.\\s]+\\.[^.\\s]+$"
+          },
+          "fk_cardinality": {
+            "type": ["string", "null"],
+            "enum": ["many-to-one", "one-to-one", "many-to-many", null],
+            "description": "Relationship cardinality for this foreign key. Defaults to many-to-one when absent."
           }
         }
       }
@@ -49,6 +54,11 @@
         "required": ["id"],
         "properties": { "id": { "type": "string", "minLength": 1 } }
       }
+    },
+    "derived_fields": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Normalized field names (lowercase, no separators) that may appear in UI/API without a data_spec origin. Merged with the built-in DERIVED_FIELDS list in constants.py."
     }
   }
 }

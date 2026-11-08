@@ -3,12 +3,23 @@
 The original pipeline relied on a shared 'approved' folder. A standalone tool
 cannot trust a folder name, so approval is a manifest of SHA-256 hashes written
 by `design-agent freeze` and checked on every run.
+
+Reproducible timestamps
+-----------------------
+``freeze()`` normally stamps ``frozen_at`` with the current UTC time.  When the
+environment variable ``SOURCE_DATE_EPOCH`` is set (a standard reproducible-builds
+variable, see <https://reproducible-builds.org/specs/source-date-epoch/>), the
+epoch value is used instead.  CI scripts should set it so that regenerating
+fixtures with ``make_negative.py`` produces byte-for-byte identical output and
+``git diff --exit-code`` can detect *real* content changes rather than timestamp
+noise.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -20,13 +31,27 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _now_iso() -> str:
+    """Return the current UTC time as ISO-8601, or a fixed timestamp when
+    ``SOURCE_DATE_EPOCH`` is set (reproducible-builds convention)."""
+    epoch_str = os.environ.get("SOURCE_DATE_EPOCH")
+    if epoch_str is not None:
+        try:
+            ts = datetime.fromtimestamp(int(epoch_str), tz=UTC)
+        except (ValueError, OverflowError, OSError):
+            ts = datetime.now(UTC)
+    else:
+        ts = datetime.now(UTC)
+    return ts.isoformat(timespec="seconds")
+
+
 def freeze(input_dir: Path, version: str, approved_by: str) -> Path:
     files = {n: sha256_file(input_dir / n) for n in REQUIRED_INPUTS if (input_dir / n).is_file()}
     manifest = {
         "approved": True,
         "version": version,
         "approved_by": approved_by,
-        "frozen_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "frozen_at": _now_iso(),
         "files": files,
     }
     out = input_dir / BASELINE_FILE

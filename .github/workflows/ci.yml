@@ -21,9 +21,12 @@ jobs:
       - name: Lint
         run: ruff check .
       - name: Fixtures are reproducible
+        # SOURCE_DATE_EPOCH=0 pins frozen_at to 1970-01-01T00:00:00+00:00 so that
+        # make_negative.py produces byte-for-byte identical output on every run.
+        # git diff --exit-code will now fail if the fixture *content* changes for
+        # a real reason (new test cases, changed hashes) and pass when nothing changed.
         run: |
-          python examples/make_negative.py
-          git diff --exit-code --stat -- examples/negative examples/happy-path/input/baseline.json || \
-            echo "::warning::Fixtures changed on regeneration (frozen_at timestamps differ; expected)"
+          SOURCE_DATE_EPOCH=0 python examples/make_negative.py
+          git diff --exit-code --stat -- examples/negative examples/happy-path/input/baseline.json
       - name: Tests (replay LLM only, no network)
         run: pytest

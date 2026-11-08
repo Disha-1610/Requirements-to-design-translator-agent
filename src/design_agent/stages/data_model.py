@@ -3,6 +3,12 @@
 Allowed transformations: required -> NOT NULL flag, stated foreign_key -> FK,
 source type -> database type. Nothing is added because two entities "seem related".
 Unspecified `required` stays null instead of being guessed.
+
+Foreign-key cardinality
+-----------------------
+`relationships[].kind` in data_model.schema.json specifies `kind: "many-to-one"`.
+If cardinality is specified in data_spec (e.g. `fk_cardinality`), we accept it or
+default to "many-to-one", while `foreign_keys` keeps the schema contract (`field`, `references`).
 """
 
 from __future__ import annotations
@@ -24,6 +30,8 @@ _TYPE_MAP = {
     "datetime": "TIMESTAMPTZ",
     "timestamp": "TIMESTAMPTZ",
 }
+
+_DEFAULT_CARDINALITY = "many-to-one"
 
 
 def db_type(spec: dict) -> str:
@@ -64,7 +72,11 @@ def build(index: CanonicalIndex, arch_modules: dict[str, dict[str, list[str]]]) 
                 "primary_key": [n for n, f in fields.items() if f.get("primary_key")],
                 "foreign_keys": fks,
                 "relationships": [
-                    {"from": f"{entity}.{fk['field']}", "to": fk["references"], "kind": "many-to-one"}
+                    {
+                        "from": f"{entity}.{fk['field']}",
+                        "to": fk["references"],
+                        "kind": fields[fk["field"]].get("fk_cardinality") or _DEFAULT_CARDINALITY,
+                    }
                     for fk in fks
                 ],
             }

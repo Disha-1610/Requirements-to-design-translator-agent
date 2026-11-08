@@ -60,6 +60,11 @@ class RunResult:
     stage9_stops: list[str] = field(default_factory=list)
 
 
+def _sha256_design(design: Path) -> dict[str, str]:
+    """Return SHA-256 hashes for all six output files in a design/ directory."""
+    return {name: sha256_file(design / name) for name in OUTPUT_FILES if (design / name).is_file()}
+
+
 def run(
     input_dir: Path,
     out_root: Path,
@@ -110,11 +115,15 @@ def run(
         _write_json(design / "validation_checklist.json", validation_checklist.build(index, ui))
 
         failures = validate_dir(design, index)
+        # Store hashes of the six output files alongside the pass/fail status so
+        # that `promote` can verify nothing was edited between validation and promotion.
+        output_hashes = _sha256_design(design)
         _write_json(
             run_dir / "stage8_report.json",
             {
                 "passed": not failures,
                 "failures": [f.__dict__ | {"stop": f.stop_line()} for f in failures],
+                "output_sha256": output_hashes,
             },
         )
         if failures:
@@ -135,10 +144,39 @@ def run(
 
 
 def promote(run_dir: Path, out_root: Path, version: str, approved_by: str) -> Path:
-    """Human step: copy a Stage-8-passed run's six files into approved/<version>/."""
+    """Human step: copy a Stage-8-passed run's six files into approved/<version>/.
+
+    Guards:
+    - Stage 8 report must exist and ``passed`` must be True.
+    - Every output file is re-hashed and compared against the hashes recorded in
+      the Stage 8 report.  Any edit made after validation is detected and blocked.
+    """
     report = run_dir / "stage8_report.json"
-    if not report.is_file() or not json.loads(report.read_text())["passed"]:
+    if not report.is_file():
         raise Stop("STOP: Promote — run has no passing Stage 8 report")
+    # Use explicit encoding; on Windows the default code-page can differ.
+    report_data = json.loads(report.read_text(encoding="utf-8"))
+    if not report_data.get("passed"):
+        raise Stop("STOP: Promote — run has no passing Stage 8 report")
+
+    # Verify that the design files still match the hashes recorded at validation time.
+    recorded_hashes: dict[str, str] = report_data.get("output_sha256", {})
+    design = run_dir / "design"
+    for name in OUTPUT_FILES:
+        recorded = recorded_hashes.get(name)
+        if recorded is None:
+            # Older report without hashes — cannot verify; fail safe.
+            raise Stop(
+                f"STOP: Promote — stage8_report.json has no hash for '{name}'; "
+                "re-run the pipeline to generate a report with hashes"
+            )
+        current = sha256_file(design / name)
+        if current != recorded:
+            raise Stop(
+                f"STOP: Promote — '{name}' was modified after Stage 8 validation "
+                f"(recorded {recorded[:12]}…, current {current[:12]}…)"
+            )
+
     target = out_root / "approved" / version
     if target.exists():
         raise Stop(f"STOP: Promote — approved/{version} already exists; never overwritten")

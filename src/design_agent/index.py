@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 from .constants import BR_RE, BRD_SECTIONS
 from .errors import Stop
+from .normalize import norm_entity
 from .verify import Inputs, schema_issues
 
 _LIST_MARK = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
@@ -28,6 +29,9 @@ class CanonicalIndex:
     out_of_scope: list[str]
     actors: list[str]
     links: dict[str, dict[str, list[str]]] = field(default_factory=dict)
+    # Extra derived-field names declared in data_spec.derived_fields (normalized).
+    # Merged with the built-in DERIVED_FIELDS constant in validate.py check 6.
+    spec_derived_fields: frozenset[str] = field(default_factory=frozenset)
 
     @property
     def functional_ids(self) -> list[str]:
@@ -43,6 +47,7 @@ class CanonicalIndex:
             "actors": self.actors,
             "links": self.links,
             "out_of_scope": self.out_of_scope,
+            "spec_derived_fields": sorted(self.spec_derived_fields),
         }
 
 
@@ -156,6 +161,15 @@ def build_index(inputs: Inputs) -> CanonicalIndex:
     for rec in requirements.values():
         br_ids.update(s for s in rec["source_ids"] if BR_RE.fullmatch(s))
 
+    # Harvest project-specific derived fields declared in data_spec.
+    # Each entry is already normalized by convention (lowercase, no separators),
+    # but we re-normalize defensively so the check is consistent.
+    spec_derived: frozenset[str] = frozenset(
+        norm_entity(f)  # norm_entity strips spaces/underscores/hyphens, lowercases
+        for f in inputs.data_spec.get("derived_fields", [])
+        if isinstance(f, str) and f.strip()
+    )
+
     return CanonicalIndex(
         requirements=requirements,
         br_ids=br_ids,
@@ -169,4 +183,5 @@ def build_index(inputs: Inputs) -> CanonicalIndex:
             rid: {"source_ids": list(r["source_ids"]), "error_ids": list(r["error_ids"])}
             for rid, r in requirements.items()
         },
+        spec_derived_fields=spec_derived,
     )
