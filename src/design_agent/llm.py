@@ -15,6 +15,14 @@ from typing import Any, Protocol
 from .errors import Stop
 
 
+class TransientLLMError(Exception):
+    """Provider hiccup worth one retry: timeout, connection drop, rate limit, 5xx/overload."""
+
+
+class BadOutputError(Exception):
+    """The model answered, but not in a usable shape (e.g. no tool_use block)."""
+
+
 class LLMClient(Protocol):
     name: str
     model: str
@@ -39,6 +47,7 @@ class AnthropicClient:
             raise Stop(
                 "STOP: Missing dependency — anthropic — pip install 'design-agent[anthropic]'"
             ) from e
+        self._anthropic = anthropic
         self._client = anthropic.Anthropic()
         self.model = model
         self.temperature = temperature
@@ -48,25 +57,34 @@ class AnthropicClient:
         kwargs: dict[str, Any] = {}
         if self.temperature is not None:
             kwargs["temperature"] = self.temperature
-        resp = self._client.messages.create(
-            model=self.model,
-            max_tokens=self.max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-            tools=[
-                {
-                    "name": "emit_artifact",
-                    "description": f"Return the {stage} artifact.",
-                    "input_schema": _tool_schema(schema),
-                }
-            ],
-            tool_choice={"type": "tool", "name": "emit_artifact"},
-            **kwargs,
-        )
+        anthropic = self._anthropic
+        try:
+            resp = self._client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                system=system,
+                messages=[{"role": "user", "content": user}],
+                tools=[
+                    {
+                        "name": "emit_artifact",
+                        "description": f"Return the {stage} artifact.",
+                        "input_schema": _tool_schema(schema),
+                    }
+                ],
+                tool_choice={"type": "tool", "name": "emit_artifact"},
+                **kwargs,
+            )
+        except (
+            anthropic.APIConnectionError,  # includes APITimeoutError
+            anthropic.RateLimitError,
+            anthropic.InternalServerError,  # 5xx, incl. 529 overloaded
+        ) as e:
+            raise TransientLLMError(f"{type(e).__name__}: {e}") from e
+        # Anything else (auth, permission, bad request, not found) propagates: retrying cannot help.
         for block in resp.content:
             if block.type == "tool_use":
                 return dict(block.input)
-        raise ValueError("model returned no tool_use block")
+        raise BadOutputError(f"model returned no tool_use block (stop_reason={resp.stop_reason})")
 
 
 class ReplayClient:
@@ -80,5 +98,5 @@ class ReplayClient:
     def complete_json(self, *, stage: str, system: str, user: str, schema: dict) -> dict:
         path = self.dir / f"{stage}.json"
         if not path.is_file():
-            raise ValueError(f"no recorded response for stage '{stage}' in {self.dir}")
+            raise Stop(f"STOP: Replay — no recorded response for stage '{stage}' in {self.dir}")
         return json.loads(path.read_text(encoding="utf-8"))

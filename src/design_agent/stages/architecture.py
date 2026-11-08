@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from .. import architecture_md
-from ..errors import Stop
 from ..index import CanonicalIndex
 from ..llm import LLMClient
+from ..validate import arch_modules, check_architecture
 from . import StageRecord, run_llm_stage
 
 NUMBER, NAME, FILE = 2, "architecture", "architecture.md"
@@ -20,16 +20,32 @@ def run(client: LLMClient, index: CanonicalIndex) -> tuple[dict, str, StageRecor
         "entities": sorted(index.entities),
         "actors": index.actors,
     }
-    arch, record = run_llm_stage(client, number=NUMBER, name=NAME, file=FILE, payload=payload)
+    arch, record = run_llm_stage(
+        client,
+        number=NUMBER,
+        name=NAME,
+        file=FILE,
+        payload=payload,
+        check=lambda out: ownership_problems(index, out),
+    )
+    return arch, architecture_md.render(arch), record
 
+
+def ownership_problems(index: CanonicalIndex, arch: dict) -> list[str]:
+    """Every data_spec entity owned exactly once; nothing owned twice (Stage 8 check 5)."""
     owned = [e for m in arch["modules"] for e in m["entities"]]
     missing = sorted(set(index.entities) - set(owned))
     extra = sorted(set(owned) - set(index.entities))
     dupes = sorted({e for e in owned if owned.count(e) > 1})
+    problems: list[str] = []
     if missing or extra or dupes:
-        raise Stop(
-            f"STOP: Stage 2 — architecture — {FILE} — entity ownership — "
-            f"missing {missing}, unknown {extra}, split {dupes}",
-            stage="2",
+        problems.append(
+            f"entity ownership — missing {missing}, unknown {extra}, split {dupes}"
         )
-    return arch, architecture_md.render(arch), record
+    # Split screens/APIs (entity splits are already reported above).
+    problems += [
+        f.stop_line()
+        for f in check_architecture(arch_modules(arch))
+        if not f.reason.startswith("entity")
+    ]
+    return problems

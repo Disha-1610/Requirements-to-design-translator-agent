@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ..index import CanonicalIndex
 from ..llm import LLMClient
+from ..validate import arch_modules, check_api_contracts
 from . import StageRecord, run_llm_stage
 
 NUMBER, NAME, FILE = 5, "api_contracts", "api_contracts.json"
@@ -39,5 +40,13 @@ def run(
             for e, r in index.errors.items()
         ],
     }
-    out, record = run_llm_stage(client, number=NUMBER, name=NAME, file=FILE, payload=payload)
+    modules = arch_modules(arch)
+    out, record = run_llm_stage(
+        client,
+        number=NUMBER,
+        name=NAME,
+        file=FILE,
+        payload=payload,
+        check=lambda o: [f.stop_line() for f in check_api_contracts(index, modules, o)],
+    )
     return {"schema_version": "1", **out}, record

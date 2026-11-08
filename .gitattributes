@@ -1,0 +1,2 @@
+# Frozen baselines hash exact bytes: never convert line endings in fixtures.
+examples/** text eol=lf

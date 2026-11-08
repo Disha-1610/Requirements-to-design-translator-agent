@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ..index import CanonicalIndex
 from ..llm import LLMClient
+from ..validate import arch_modules, check_ui_spec
 from . import StageRecord, run_llm_stage
 
 NUMBER, NAME, FILE = 4, "ui_spec", "ui_spec.json"
@@ -32,5 +33,13 @@ def run(
         },
         "errors": [{"error_id": e, "name": r["name"]} for e, r in index.errors.items()],
     }
-    out, record = run_llm_stage(client, number=NUMBER, name=NAME, file=FILE, payload=payload)
+    modules = arch_modules(arch)
+    out, record = run_llm_stage(
+        client,
+        number=NUMBER,
+        name=NAME,
+        file=FILE,
+        payload=payload,
+        check=lambda o: [f.stop_line() for f in check_ui_spec(index, modules, o)],
+    )
     return {"schema_version": "1", **out}, record

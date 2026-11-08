@@ -141,6 +141,121 @@ def check_baseline(index: CanonicalIndex) -> list[Failure]:
     return out
 
 
+# ---------- per-artifact checks (run right after each LLM stage, and in validate_dir) ----------
+
+Arch = dict[str, dict[str, list[str]]]
+
+
+def arch_modules(arch: dict) -> Arch:
+    """Stage 2 output {"modules": [...]} -> the {module: {screens, apis, entities}} form."""
+    return {
+        m["name"]: {k: list(m.get(k, [])) for k in ("screens", "apis", "entities")}
+        for m in arch["modules"]
+    }
+
+
+def _check_ids(fails: list[Failure], index: CanonicalIndex, file: str, label: str, ids: list[str]) -> None:
+    """Check 3: requirement IDs exist, exact case."""
+    for rid in ids:
+        if rid not in index.requirements:
+            fails.append(Failure(3, file, f"{label}/{rid}", _id_suggestion(rid, index)))
+
+
+def _check_errs(
+    fails: list[Failure], index: CanonicalIndex, file: str, label: str, ids: list[str | None]
+) -> None:
+    """Check 4: ERR IDs exist in error_catalogue.json."""
+    for eid in ids:
+        if eid is not None and eid not in index.errors:
+            fails.append(Failure(4, file, f"{label}/{eid}", "not in error_catalogue.json"))
+
+
+def _owner_map(arch: Arch) -> dict[tuple[str, str], list[str]]:
+    owner: dict[tuple[str, str], list[str]] = {}
+    for module, owns in arch.items():
+        for kind in ("screens", "apis", "entities"):
+            for item in owns[kind]:
+                owner.setdefault((kind, item), []).append(module)
+    return owner
+
+
+def _check_owner(
+    fails: list[Failure],
+    arch: Arch,
+    owner: dict[tuple[str, str], list[str]],
+    file: str,
+    kind: str,
+    item: str,
+    module: str,
+) -> None:
+    """Check 5: the declared module owns the item in architecture.md."""
+    if module not in arch:
+        fails.append(Failure(5, file, item, f"module '{module}' not in architecture.md"))
+        return
+    owners = owner.get((kind, item))
+    if not owners:
+        fails.append(Failure(5, file, item, f"{kind[:-1]} has no owner in architecture.md"))
+    elif module not in owners:
+        fails.append(
+            Failure(5, file, item, f"declares module '{module}', architecture.md says {owners}")
+        )
+
+
+def check_architecture(arch: Arch) -> list[Failure]:
+    """Check 5 (no split ownership) on architecture.md."""
+    return [
+        Failure(5, "architecture.md", item, f"{kind[:-1]} owned by multiple modules {mods}")
+        for (kind, item), mods in _owner_map(arch).items()
+        if len(mods) > 1
+    ]
+
+
+def check_user_flows(index: CanonicalIndex, flows: dict) -> list[Failure]:
+    """Check 3 on user_flows.json."""
+    fails: list[Failure] = []
+    for f in flows["flows"]:
+        _check_ids(fails, index, "user_flows.json", f["flow_id"], f["satisfies"])
+    return fails
+
+
+def check_ui_spec(index: CanonicalIndex, arch: Arch, ui: dict) -> list[Failure]:
+    """Checks 3, 4, 5, 6 on ui_spec.json."""
+    fails: list[Failure] = []
+    owner = _owner_map(arch)
+    spec_vars = _spec_field_variants(index)
+    for s in ui["screens"]:
+        _check_ids(fails, index, "ui_spec.json", s["screen"], s["satisfies"])
+        for fld in s["fields"]:
+            _check_errs(fails, index, "ui_spec.json", f"{s['screen']}.{fld['name']}", fld["error_ids"])
+        _check_owner(fails, arch, owner, "ui_spec.json", "screens", s["screen"], s["module"])
+        for fld in s["fields"]:
+            if not _is_known_field(index, fld["name"], spec_vars):
+                fails.append(
+                    Failure(
+                        6, "ui_spec.json", f"{s['screen']}.{fld['name']}", "no match in data_spec.json"
+                    )
+                )
+    return fails
+
+
+def check_api_contracts(index: CanonicalIndex, arch: Arch, apis: dict) -> list[Failure]:
+    """Checks 3, 4, 5, 6 on api_contracts.json."""
+    fails: list[Failure] = []
+    owner = _owner_map(arch)
+    spec_vars = _spec_field_variants(index)
+    for a in apis["apis"]:
+        label = f"{a['method']} {a['endpoint']}"
+        _check_ids(fails, index, "api_contracts.json", label, a["satisfies"])
+        _check_errs(fails, index, "api_contracts.json", label, a["errors"])
+        _check_owner(fails, arch, owner, "api_contracts.json", "apis", label, a["module"])
+        for key in dict.fromkeys(_walk_keys(a["request"]) + _walk_keys(a["response"])):
+            if not _is_known_field(index, key, spec_vars):
+                fails.append(
+                    Failure(6, "api_contracts.json", f"{label}/{key}", "no match in data_spec.json")
+                )
+    return fails
+
+
 # ---------- package checks ----------
 
 
@@ -187,87 +302,17 @@ def validate_dir(design_dir: Path, index: CanonicalIndex) -> list[Failure]:
     entities = pkg["data_model.json"]["entities"]
     checklist = pkg["validation_checklist.json"]["checks"]
 
-    # 3: satisfies / requirement IDs exist, exact case
-    def check_ids(file: str, label: str, ids: list[str]) -> None:
-        for rid in ids:
-            if rid not in index.requirements:
-                fails.append(Failure(3, file, f"{label}/{rid}", _id_suggestion(rid, index)))
+    fails.extend(check_architecture(arch))
+    fails.extend(check_user_flows(index, pkg["user_flows.json"]))
+    fails.extend(check_ui_spec(index, arch, pkg["ui_spec.json"]))
+    fails.extend(check_api_contracts(index, arch, pkg["api_contracts.json"]))
 
-    for f in flows:
-        check_ids("user_flows.json", f["flow_id"], f["satisfies"])
-    for s in screens:
-        check_ids("ui_spec.json", s["screen"], s["satisfies"])
-    for a in apis:
-        check_ids("api_contracts.json", f"{a['method']} {a['endpoint']}", a["satisfies"])
+    _check_ids(fails, index, "validation_checklist.json", "check", [c["requirement_id"] for c in checklist])
     for c in checklist:
-        check_ids("validation_checklist.json", "check", [c["requirement_id"]])
-
-    # 4: ERR IDs everywhere
-    def check_errs(file: str, label: str, ids: list[str | None]) -> None:
-        for eid in ids:
-            if eid is not None and eid not in index.errors:
-                fails.append(Failure(4, file, f"{label}/{eid}", "not in error_catalogue.json"))
-
-    for s in screens:
-        for fld in s["fields"]:
-            check_errs("ui_spec.json", f"{s['screen']}.{fld['name']}", fld["error_ids"])
-    for a in apis:
-        check_errs("api_contracts.json", f"{a['method']} {a['endpoint']}", a["errors"])
-    for c in checklist:
-        check_errs("validation_checklist.json", c["requirement_id"], [c["error_id"]])
-
-    # 5: module ownership, no split
-    owner: dict[tuple[str, str], list[str]] = {}
-    for module, owns in arch.items():
-        for kind in ("screens", "apis", "entities"):
-            for item in owns[kind]:
-                owner.setdefault((kind, item), []).append(module)
-    for (kind, item), mods in owner.items():
-        if len(mods) > 1:
-            fails.append(
-                Failure(5, "architecture.md", item, f"{kind[:-1]} owned by multiple modules {mods}")
-            )
-
-    def check_owner(file: str, kind: str, item: str, module: str) -> None:
-        if module not in arch:
-            fails.append(Failure(5, file, item, f"module '{module}' not in architecture.md"))
-            return
-        owners = owner.get((kind, item))
-        if not owners:
-            fails.append(Failure(5, file, item, f"{kind[:-1]} has no owner in architecture.md"))
-        elif module not in owners:
-            fails.append(
-                Failure(5, file, item, f"declares module '{module}', architecture.md says {owners}")
-            )
-
-    for s in screens:
-        check_owner("ui_spec.json", "screens", s["screen"], s["module"])
-    for a in apis:
-        check_owner("api_contracts.json", "apis", f"{a['method']} {a['endpoint']}", a["module"])
+        _check_errs(fails, index, "validation_checklist.json", c["requirement_id"], [c["error_id"]])
+    owner = _owner_map(arch)
     for e in entities:
-        check_owner("data_model.json", "entities", e["name"], e["module"])
-
-    # 6: field origin
-    spec_vars = _spec_field_variants(index)
-    for s in screens:
-        for fld in s["fields"]:
-            if not _is_known_field(index, fld["name"], spec_vars):
-                fails.append(
-                    Failure(
-                        6, "ui_spec.json", f"{s['screen']}.{fld['name']}", "no match in data_spec.json"
-                    )
-                )
-    for a in apis:
-        for key in dict.fromkeys(_walk_keys(a["request"]) + _walk_keys(a["response"])):
-            if not _is_known_field(index, key, spec_vars):
-                fails.append(
-                    Failure(
-                        6,
-                        "api_contracts.json",
-                        f"{a['method']} {a['endpoint']}/{key}",
-                        "no match in data_spec.json",
-                    )
-                )
+        _check_owner(fails, arch, owner, "data_model.json", "entities", e["name"], e["module"])
 
     # 7: entities exist in data_spec
     spec_entities = _spec_entity_map(index)

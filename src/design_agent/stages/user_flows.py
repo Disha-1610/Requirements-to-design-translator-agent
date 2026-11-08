@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ..index import CanonicalIndex
 from ..llm import LLMClient
+from ..validate import check_user_flows
 from . import StageRecord, run_llm_stage
 
 NUMBER, NAME, FILE = 3, "user_flows", "user_flows.json"
@@ -24,5 +25,12 @@ def run(client: LLMClient, index: CanonicalIndex, arch: dict) -> tuple[dict, Sta
         ],
         "screens": {s: m["name"] for m in arch["modules"] for s in m["screens"]},
     }
-    out, record = run_llm_stage(client, number=NUMBER, name=NAME, file=FILE, payload=payload)
+    out, record = run_llm_stage(
+        client,
+        number=NUMBER,
+        name=NAME,
+        file=FILE,
+        payload=payload,
+        check=lambda o: [f.stop_line() for f in check_user_flows(index, o)],
+    )
     return {"schema_version": "1", **out}, record
